@@ -1,0 +1,85 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "relay" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+    filteringCharset = 'UTF-8'
+    def props = [version: project.version, minecraft_version: project.minecraft_version]
+    inputs.properties props
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// 精简版构建：-PexcludeFeature=tasks 会剔除该功能包，并重写 ServiceLoader 清单，
+// 用于验证"删掉一个功能核心仍能跑"。
+tasks.register('slimJar', Jar) {
+    dependsOn tasks.named('classes'), tasks.named('clientClasses')
+    def feature = providers.gradleProperty('excludeFeature').getOrElse('tasks')
+    archiveClassifier = "no-${feature}"
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    from(sourceSets.main.output) {
+        exclude "com/relay/feature/${feature}/**"
+        exclude "META-INF/services/com.relay.api.RelayFeature"
+    }
+    from(sourceSets.client.output)
+    from(layout.buildDirectory.dir('slim-services'))
+
+    doFirst {
+        def dir = layout.buildDirectory.dir('slim-services/META-INF/services').get().asFile
+        dir.mkdirs()
+        def lines = new File(projectDir, 'src/main/resources/META-INF/services/com.relay.api.RelayFeature')
+                .readLines()
+                .findAll { !it.contains(".feature.${feature}.") }
+        new File(dir, 'com.relay.api.RelayFeature').text = lines.join('\n') + '\n'
+        logger.lifecycle("slimJar 保留功能: ${lines}")
+    }
+}

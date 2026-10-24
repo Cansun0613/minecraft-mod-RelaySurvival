@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "relay",
+  "version": "${version}",
+  "name": "Relay Survival",
+  "description": "接力生存：限时接力、强制交接、随机任务。",
+  "authors": ["Cansun0613"],
+  "license": "MIT",
+  "icon": "assets/relay/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.relay.RelayMod"],
+    "client": ["com.relay.client.RelayClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.20.0",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
